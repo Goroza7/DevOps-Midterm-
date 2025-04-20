@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DevOps Demo App</title>
+    <style>
+      body {
+        color: rgb(248, 238, 223);
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+        background-color: black;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+      .message {
+        padding: 10px;
+        color: rgb(248, 238, 223);
+        background-color: rgb(142, 22, 22);
+        margin-bottom: 10px;
+      }
+      form {
+        margin-bottom: 20px;
+      }
+      input[type="text"] {
+        padding: 8px;
+        width: 70%;
+      }
+      button {
+        padding: 8px 15px;
+        background-color: #4caf50;
+        color: white;
+        border: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Message Board</h1>
+
+      <form action="/add_message" method="post">
+        <input type="text" name="message" placeholder="Enter a message" />
+        <button type="submit">Add Message</button>
+      </form>
+
+      <h2>Messages:</h2>
+      {% if messages %} {% for message in messages %}
+      <div class="message">{{ message }}</div>
+      {% endfor %} {% else %}
+      <p>No messages yet.</p>
+      {% endif %}
+    </div>
+  </body>
+</html>
