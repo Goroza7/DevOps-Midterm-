@@ -14,3 +14,9 @@ ENV/
 # IDE
 .idea/
 .vscode/
+
+# Production folder
+production/
+
+#log files
+*.log
