@@ -1,0 +1,88 @@
+- name: Rollback Flask app to previous version
+  hosts: localhost
+  gather_facts: false
+  vars:
+    production_base: "/mnt/c/Midterm(DevOps)/production"
+    envs:
+      - blue
+      - green
+
+  tasks:
+    # 0. Ensure production/ exists for live link
+    - name: Ensure production directory exists
+      file:
+        path: "{{ production_base }}"
+        state: directory
+
+    # 1. Check if live symlink exists
+    - name: Stat the live symlink
+      stat:
+        path: "{{ production_base }}/live"
+        follow: false
+      register: live_stat
+
+    # 2. Determine current_env from link (blue or green)
+    - name: Set current_env from existing symlink
+      set_fact:
+        current_env: "{{ live_stat.stat.lnk_source | basename }}"
+      when: live_stat.stat.exists and live_stat.stat.islnk
+
+      # After determining the current environment
+    - name: Show current environment
+      debug:
+        msg: "Current environment is '{{ current_env }}'"
+
+    - name: Initialize current_env to empty if live missing
+      set_fact:
+        current_env: ""
+      when: not live_stat.stat.exists
+
+    # 3. Pick next_env color
+    - name: Pick next color (blue ↔ green)
+      set_fact:
+        next_env: "{{ envs[1] if current_env == envs[0] else envs[0] }}"
+
+    # After determining the next environment
+    - name: Show next environment to switch to
+      debug:
+        msg: "Switching to '{{ next_env }}'"
+
+    # 4. Prepare target environment directory
+    - name: Ensure target env directory exists
+      file:
+        path: "{{ production_base }}/{{ next_env }}"
+        state: directory
+
+    # 5. Switch live symlink to the new env
+    - name: Switch live symlink to the new env
+      file:
+        src: "{{ production_base }}/{{ next_env }}"
+        dest: "{{ production_base }}/live"
+        state: link
+        force: yes
+
+    - name: Show path of the live symlink
+      debug:
+        msg: "Live symlink points to '{{ production_base }}/live' -> '{{ production_base }}/{{ next_env }}'"
+
+    - name: Check symlink after rollback
+      command: readlink -f "{{ production_base }}/live"
+      register: symlink_check
+
+    - debug:
+        var: symlink_check.stdout
+
+    - name: Kill any old Flask process
+      shell: |
+        if [ -f "{{ production_base }}/{{ current_env }}/flask.pid" ]; then
+          kill "$(cat '{{ production_base }}/{{ current_env }}/flask.pid')" \
+            && rm '{{ production_base }}/{{ current_env }}/flask.pid'
+        else
+          pkill -f '{{ production_base }}/{{ current_env }}/run.py' || true
+        fi
+      ignore_errors: true
+      when: current_env != ""
+
+    # 6. Running the Flask app
+    - name: Run Flask app
+      command: "{{ production_base }}/live/venv/bin/python3 {{ production_base }}/live/run.py"
