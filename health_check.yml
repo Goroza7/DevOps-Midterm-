@@ -1,0 +1,34 @@
+- name: Health Check for Flask App
+  hosts: localhost
+  gather_facts: false
+  vars:
+    health_check_url: "http://localhost:5000"
+    log_file: "{{ playbook_dir }}/deployment_health.log"
+
+  tasks:
+    - name: Perform health check
+      uri:
+        url: "{{ health_check_url }}"
+        method: GET
+        return_content: yes
+        status_code: 200
+      register: health_check
+      ignore_errors: true
+
+    - name: Append health check log entries
+      lineinfile:
+        path: "{{ log_file }}"
+        line: "{{ item }}"
+        create: yes
+        insertafter: EOF
+      loop:
+        - "Timestamp: {{ lookup('pipe', 'date') }}"
+        - "Health check URL: {{ health_check_url }}"
+        - "Status: {{ health_check.status | default('FAILED') }}"
+        - "---------------------------------------------"
+      delegate_to: localhost
+
+    - name: Fail if health check unsuccessful
+      fail:
+        msg: "Health check failed! Flask app may be unhealthy."
+      when: health_check.status is not defined or health_check.status != 200

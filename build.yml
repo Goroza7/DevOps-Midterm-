@@ -1,0 +1,56 @@
+- name: Set up local dev environment for Flask project
+  hosts: localhost
+  become: true
+  vars:
+    # Use the playbook's directory as the project root so paths stay relative
+    project_root: "{{ playbook_dir }}"
+
+  tasks:
+    - name: Ensure Python 3 is installed
+      apt:
+        name: python3
+        state: present
+        update_cache: true
+
+    - name: Ensure pip is installed
+      apt:
+        name: python3-pip
+        state: present
+
+    - name: Ensure venv module is installed
+      apt:
+        name: python3-venv
+        state: present
+
+    - name: Copy project files into working directory
+      # This will sync only contents of the repo where this playbook lives
+      synchronize:
+        src: "{{ project_root }}/"
+        dest: "{{ project_root }}/"
+        recursive: yes
+        delete: yes
+        rsync_opts:
+          - "--exclude=.github/"
+          - "--exclude=venv/"
+          - "--exclude=production/"
+          - "--exclude=.git/"
+
+    - name: Create virtual environment
+      command: python3 -m venv venv
+      args:
+        chdir: "{{ project_root }}"
+        creates: "{{ project_root }}/venv/bin/activate"
+
+    - name: Install required Python packages
+      pip:
+        requirements: "{{ project_root }}/requirements.txt"
+        virtualenv: "{{ project_root }}/venv"
+        virtualenv_site_packages: no
+        virtualenv_python: python3
+
+    - name: Run pytest tests
+      command: "pytest"
+      args:
+        chdir: "{{ project_root }}"
+      register: test_result
+      failed_when: test_result.rc != 0
