@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>DevOps Demo App</title>
+    <title>DevOps Demo App Blue</title>
     <style>
       body {
         color: rgb(248, 238, 223);
@@ -33,11 +33,17 @@
         color: white;
         border: none;
       }
+      .nextPage {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        text-align: right;
+      }
     </style>
   </head>
   <body>
     <div class="container">
-      <h1>Message Board</h1>
+      <h1>Message Board 1</h1>
 
       <form action="/add_message" method="post">
         <input type="text" name="message" placeholder="Enter a message" />
@@ -50,6 +56,9 @@
       {% endfor %} {% else %}
       <p>No messages yet.</p>
       {% endif %}
+    </div>
+    <div class="nextPage">
+      <a href="{{ url_for('main.status') }}" name="nextPage">View Dashboard </a>
     </div>
   </body>
 </html>

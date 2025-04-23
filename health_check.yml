@@ -1,34 +1,122 @@
-- name: Health Check for Flask App
+- name: Health Check for Flask App with Automatic Rollback
   hosts: localhost
   gather_facts: false
   vars:
     health_check_url: "http://localhost:5000"
     log_file: "{{ playbook_dir }}/deployment_health.log"
+    production_base: "/mnt/c/Midterm(DevOps)/production"
+    envs:
+      - blue
+      - green
 
   tasks:
+    - name: Set default current_env
+      set_fact:
+        current_env: "none"
+
+    - name: Stat the live symlink
+      stat:
+        path: "{{ production_base }}/live"
+        follow: false
+      register: live_stat
+
+    - name: Override current_env if live link exists
+      set_fact:
+        current_env: "{{ live_stat.stat.lnk_source | basename }}"
+      when: live_stat.stat.exists and live_stat.stat.islnk
+
     - name: Perform health check
       uri:
-        url: "{{ health_check_url }}"
+        url: "http://localhost:5000"
         method: GET
         return_content: yes
         status_code: 200
       register: health_check
       ignore_errors: true
 
-    - name: Append health check log entries
+    - name: Prepare log entry
+      set_fact:
+        log_entry: |
+          Timestamp:   {{ lookup('pipe', 'date') }}
+          Environment: {{ current_env }}
+          URL:         http://localhost:5000
+          Status:      {{ health_check.status | default('FAILED') }}
+          ---------------------------------------------
+
+    - name: Append health check log to the file
       lineinfile:
         path: "{{ log_file }}"
-        line: "{{ item }}"
+        line: "{{ log_entry }}"
         create: yes
-        insertafter: EOF
-      loop:
-        - "Timestamp: {{ lookup('pipe', 'date') }}"
-        - "Health check URL: {{ health_check_url }}"
-        - "Status: {{ health_check.status | default('FAILED') }}"
-        - "---------------------------------------------"
+        insertbefore: EOF
       delegate_to: localhost
 
-    - name: Fail if health check unsuccessful
-      fail:
-        msg: "Health check failed! Flask app may be unhealthy."
+    - name: Copy deployment_health.log into blue and green environment folders
+      copy:
+        src: "{{ log_file }}"
+        dest: "{{ production_base }}/{{ item }}/deployment_health.log"
+      loop:
+        - blue
+        - green
+      delegate_to: localhost
+
+    - name: Execute rollback when health check fails
       when: health_check.status is not defined or health_check.status != 200
+      block:
+        - name: Log rollback initiation
+          lineinfile:
+            path: "{{ log_file }}"
+            line: |
+              Initiating automatic rollback at {{ lookup('pipe', 'date') }}
+              Previous live env: {{ current_env }}
+            create: yes
+            insertbefore: EOF
+          delegate_to: localhost
+
+        - name: Pick next color (blue ↔ green)
+          set_fact:
+            next_env: "{{ envs[1] if current_env == envs[0] else envs[0] }}"
+
+        - name: Ensure target env directory exists
+          file:
+            path: "{{ production_base }}/{{ next_env }}"
+            state: directory
+
+        - name: Switch live symlink to the new env
+          file:
+            src: "{{ production_base }}/{{ next_env }}"
+            dest: "{{ production_base }}/live"
+            state: link
+            force: yes
+
+        - name: Kill any old Flask process
+          shell: |
+            if [ -f "{{ production_base }}/{{ current_env }}/flask.pid" ]; then
+              kill "$(cat '{{ production_base }}/{{ current_env }}/flask.pid')" && rm '{{ production_base }}/{{ current_env }}/flask.pid'
+            else
+              pkill -f '{{ production_base }}/{{ current_env }}/run.py' || true
+            fi
+          ignore_errors: true
+          when: current_env != ""
+
+        - name: Run Flask app
+          shell: |
+            nohup "{{ production_base }}/live/venv/bin/python3" "{{ production_base }}/live/run.py" > /dev/null 2>&1 &
+            echo $! > "{{ production_base }}/live/flask.pid"
+
+        - name: Log rollback completion
+          lineinfile:
+            path: "{{ log_file }}"
+            line: "Rollback completed successfully at {{ lookup('pipe', 'date') }}"
+            create: yes
+            insertbefore: EOF
+          delegate_to: localhost
+
+    - name: Report health check status
+      debug:
+        msg: >-
+          {% if health_check.status is defined and health_check.status == 200 %}
+            Health check successful ({{ current_env }})
+          {% else %}
+            Health check failed, rollback executed (was {{ current_env }})
+          {% endif %}

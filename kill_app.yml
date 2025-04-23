@@ -1,0 +1,37 @@
+- name: Kill currently running Flask app in Blue-Green Deployment
+  hosts: localhost
+  gather_facts: false
+  vars:
+    production_base: "/mnt/c/Midterm(DevOps)/production"
+
+  tasks:
+    - name: Check if live symlink exists
+      stat:
+        path: "{{ production_base }}/live"
+        follow: false
+      register: live_stat
+
+    - name: Set current_env from live link
+      set_fact:
+        current_env: "{{ live_stat.stat.lnk_source | basename }}"
+      when: live_stat.stat.exists and live_stat.stat.islnk
+
+    - name: Kill Flask process if PID file exists
+      shell: |
+        if [ -f "{{ production_base }}/{{ current_env }}/flask.pid" ]; then
+          kill "$(cat '{{ production_base }}/{{ current_env }}/flask.pid')" \
+            && rm '{{ production_base }}/{{ current_env }}/flask.pid'
+        else
+          pkill -f '{{ production_base }}/{{ current_env }}/run.py' || true
+        fi
+      when: live_stat.stat.exists and live_stat.stat.islnk
+      ignore_errors: true
+
+    - name: Print status
+      debug:
+        msg: >-
+          {% if live_stat.stat.exists and live_stat.stat.islnk %}
+            Flask app in '{{ current_env }}' environment was stopped (if running).
+          {% else %}
+            No live environment symlink found. Nothing to kill.
+          {% endif %}
