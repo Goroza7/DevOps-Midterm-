@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Status Dashboard</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 2rem;
+      }
+
+      .currenv-blue {
+        background-color: #007bff;
+        color: #fff;              
+      }
+      .currenv-green {
+        background-color: #28a745;
+        color: #fff;
+      }
+
+      .environment {
+        display: inline-block;
+        padding: 0.25em 0.6em;
+        border-radius: 0.25rem;
+        color: #fff;
+      }
+      .environment-green {
+        background-color: #28a745;
+      }
+      .environment-red {
+        background-color: #dc3545;
+      }
+
+      pre {
+        background: #f8f9fa;
+        padding: 1rem;
+        border-radius: 0.25rem;
+        max-height: 300px;
+        overflow-y: scroll;
+        color: #212529;
+      }
+      a {
+        text-decoration: none;
+        color: #007bff;
+      }
+    </style>
+  </head>
+  <body
+    {% if current_env in ['blue', 'green'] %}
+      class="currenv-{{ current_env }}"
+    {% endif %}
+  >
+    <h1>Status Dashboard</h1>
+
+    <p>
+      Active environment:
+      {% if current_env in ['blue','green'] %}
+        <span class="environment environment-green">{{ current_env }}</span>
+      {% else %}
+        <span class="environment environment-red">none</span>
+      {% endif %}
+    </p>
+
+    <h2>Recent Health-Check Log</h2>
+    <pre>
+{% for line in log_lines %}
+{{ line.rstrip() }}
+{% endfor %}
+    </pre>
+
+    <p><a href="{{ url_for('main.index') }}">&larr; Back to Home</a></p>
+  </body>
+</html>
