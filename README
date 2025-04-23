@@ -1,0 +1,36 @@
+A basic web application with:
+
+- Flask web server
+- GitHub version control
+- GitHub Actions for CI
+- Ansible for setup automation
+- Simulated Blue-Green Deployment
+- Basic Monitoring via shell script(health_check, manual rollback and automated rollback if health_check fails)
+
+## In order to Run just Local application
+
+```bash
+ansible-playbook build.yml
+python3 run.py
+```
+
+## Simulating Blue-Green Deployment
+
+```bash
+ansible-playbook build.yml
+ansible-playbook deploy.yml
+# First it will create blue on C:/Midterm(DevOps) production folder with only blue, for green rerun the deploy.yml,
+# you can also see on localport 5000 which envrionment it is currently running on.
+
+# If you want to manually rollback run
+ansible-playbook rollback.yml
+
+# In order to check its health run
+ansible-playbook health_check.yml # logs will be saved in deployment.log(it will be also copied into appropriate production folder, you can also see logs on /status page)
+
+# In order to kill the running application run
+ansible-playbook kill_app.yml
+
+# And finally if you want to rollback automatically run
+ansible-playbook health_check.yml
+```
