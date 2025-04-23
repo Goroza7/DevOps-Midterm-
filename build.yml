@@ -2,7 +2,6 @@
   hosts: localhost
   become: true
   vars:
-    # Use the playbook's directory as the project root so paths stay relative
     project_root: "{{ playbook_dir }}"
 
   tasks:
@@ -23,7 +22,6 @@
         state: present
 
     - name: Copy project files into working directory
-      # This will sync only contents of the repo where this playbook lives
       synchronize:
         src: "{{ project_root }}/"
         dest: "{{ project_root }}/"

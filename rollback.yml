@@ -8,26 +8,22 @@
       - green
 
   tasks:
-    # 0. Ensure production/ exists for live link
     - name: Ensure production directory exists
       file:
         path: "{{ production_base }}"
         state: directory
 
-    # 1. Check if live symlink exists
     - name: Stat the live symlink
       stat:
         path: "{{ production_base }}/live"
         follow: false
       register: live_stat
 
-    # 2. Determine current_env from link (blue or green)
     - name: Set current_env from existing symlink
       set_fact:
         current_env: "{{ live_stat.stat.lnk_source | basename }}"
       when: live_stat.stat.exists and live_stat.stat.islnk
 
-      # After determining the current environment
     - name: Show current environment
       debug:
         msg: "Current environment is '{{ current_env }}'"
@@ -37,23 +33,19 @@
         current_env: ""
       when: not live_stat.stat.exists
 
-    # 3. Pick next_env color
     - name: Pick next color (blue ↔ green)
       set_fact:
         next_env: "{{ envs[1] if current_env == envs[0] else envs[0] }}"
 
-    # After determining the next environment
     - name: Show next environment to switch to
       debug:
         msg: "Switching to '{{ next_env }}'"
 
-    # 4. Prepare target environment directory
     - name: Ensure target env directory exists
       file:
         path: "{{ production_base }}/{{ next_env }}"
         state: directory
 
-    # 5. Switch live symlink to the new env
     - name: Switch live symlink to the new env
       file:
         src: "{{ production_base }}/{{ next_env }}"
@@ -83,6 +75,8 @@
       ignore_errors: true
       when: current_env != ""
 
-    # 6. Running the Flask app
     - name: Run Flask app
-      command: "{{ production_base }}/live/venv/bin/python3 {{ production_base }}/live/run.py"
+      shell: |
+        nohup "{{ production_base }}/live/venv/bin/python3" "{{ production_base }}/live/run.py" \
+          > /dev/null 2>&1 &
+        echo $! > "{{ production_base }}/live/flask.pid"
