@@ -1,17 +1,21 @@
-A basic web application with:
+This project is a simple web application built using Flask that allows users to post messages via a form. Submitted messages are dynamically displayed below the form, functioning as a basic message board.
 
-- Flask web server
-- GitHub version control
-- GitHub Actions for CI
+Project includes:
+
+- A dynamic route to handle message submissions.
+- Unit tests to verify route functionality.
+- GitHub version control, with main and dev branches
+- A CI pipeline with GitHub Actions to automatically run tests on push or pull requests
 - Ansible for setup automation
-- Simulated Blue-Green Deployment
-- Basic Monitoring via shell script(health_check, manual rollback and automated rollback if health_check fails)
+- Simulated Blue-Green Deployment,
+- Basic Monitoring (health_check, manual rollback and automated rollback if health_check fails)
 
 ## In order to Run just Local application
 
 ```bash
 ansible-playbook build.yml
 python3 run.py
+pytest # for tests
 ```
 
 ## Simulating Blue-Green Deployment
@@ -28,9 +32,9 @@ ansible-playbook rollback.yml
 # In order to check its health run
 ansible-playbook health_check.yml # logs will be saved in deployment.log(it will be also copied into appropriate production folder, you can also see logs on /status page)
 
-# In order to kill the running application run
+# In order to kill the running application
 ansible-playbook kill_app.yml
 
 # And finally if you want to rollback automatically run
-ansible-playbook health_check.yml
+ansible-playbook health_check.yml # app should be killed for this otherwise it will just save health log into log file.
 ```
